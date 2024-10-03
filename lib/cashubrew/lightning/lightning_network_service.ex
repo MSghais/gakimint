@@ -29,10 +29,10 @@ defmodule Cashubrew.Lightning.LightningNetworkService do
       amount: amount,
       unit_input: unit_input
     }
+    IO.puts("amount: #{amount}")
 
     case LNBitsApi.post_data("api/v1/payments", attributes) do
       {:ok, response_body} ->
-        IO.puts("Success create in: #{response_body}")
 
         response_map = Jason.decode!(response_body)
         payment_hash = response_map["payment_hash"]

@@ -4,6 +4,7 @@ defmodule Cashubrew.Mint do
   """
 
   use GenServer
+  alias Cashubrew.Cashu.ProofValidator
   alias Cashubrew.Cashu.BlindSignature
   alias Cashubrew.Crypto.BDHKE
   alias Cashubrew.Lightning.LightningNetworkService
@@ -19,6 +20,7 @@ defmodule Cashubrew.Mint do
   @mint_pubkey_key "mint_pubkey"
   @mint_privkey_key "mint_privkey"
   @default_input_fee_ppk 0
+  @bolt11_method "bolt11"
 
   def start_link(_) do
     GenServer.start_link(__MODULE__, %{}, name: __MODULE__)
@@ -234,6 +236,8 @@ defmodule Cashubrew.Mint do
     # Used amount
     # If :amount exists, returns its value; otherwise returns 1000
     amount = Map.get(invoice, :amount_msat, 1000)
+    # TODO
+    # Check fee requested
 
     fee_reserve = 0
     # Create and Saved melt quote
@@ -260,12 +264,74 @@ defmodule Cashubrew.Mint do
 
   def handle_call({:create_melt_tokens, quote_id, inputs}, _from, state) do
     repo = Application.get_env(:cashubrew, :repo)
+    IO.puts("quote_id: #{quote_id}")
+    IO.puts("inputs: #{inputs}")
 
     # TODO
     # Verify quote_id
 
-    {:ok, melt_find} = Cashubrew.Query.MeltTokens.get_melt_by_quote_id!(quote_id)
-    IO.puts("melt_find: #{melt_find}")
+    # {:ok, melt_find} = Cashubrew.Query.MeltTokens.get_melt_by_quote_id!(quote_id)
+    # IO.puts("melt_find: #{melt_find}")
+
+    # case Cashubrew.Cashu.ProofValidator.validate_proofs(inputs) do
+    #   true -> IO.puts("Proofs are valid")
+    #   false -> IO.puts("Invalid proofs found")
+    # end
+    # Proof sum amount
+    # Verify secret proof if correct
+    # {:ok, proofs_check}= ProofValidator.handle_proofs(inputs)
+    # IO.puts("proofs_check: #{proofs_check}")
+
+    # proofs =
+    #   cond do
+    #     is_list(inputs) ->
+    #       inputs  # Input is already an array, so use it directly
+
+    #     is_binary(inputs) ->
+    #       # Step 2: Input is a string, try to parse it as JSON
+    #       case ProofValidator.parse_proofs(inputs) do
+    #         {:ok, parsed_proofs} -> parsed_proofs
+    #         {:error, "issue"}
+    #       end
+
+    #     true -> {:error, "issue"}
+
+    #   end
+    # IO.puts("proofs: #{proofs}")
+
+
+    {:ok, inputs_encoded} = Jason.decode(inputs)
+    IO.puts("inputs_encoded: #{inputs_encoded}")
+
+    {proofs_amount, ys} =
+      Enum.map(inputs_encoded, fn proof, {total, ys_acc} ->
+        case BDHKE.hash_to_curve(proof.secret) do
+          {:ok, y} ->
+            # y_hex = Base.encode16(y, case: :lower)  # Convert to hex
+            {total + proof.amount}
+
+          {:error, _reason} ->
+            # Return error if hashing fails
+            {:error, Errors.invalid_proof_error()}
+        end
+      end)
+
+    # {proofs_amount, ys} =
+    #   inputs
+    #   # Jason.decode(inputs)
+    #   |> Enum.map({0, []}, fn proof, {total, ys_acc} ->
+    #     case BDHKE.hash_to_curve(proof.secret) do
+    #       {:ok, y} ->
+    #         # y_hex = Base.encode16(y, case: :lower)  # Convert to hex
+    #         {total + proof.amount}
+
+    #       {:error, _reason} ->
+    #         {:error, Errors.invalid_proof_error()}  # Return error if hashing fails
+    #     end
+    #   end)
+
+    IO.puts("proofs_amount: #{proofs_amount}")
+    IO.puts("ys: #{ys}")
 
     # Check if quote is already paid or not
 
