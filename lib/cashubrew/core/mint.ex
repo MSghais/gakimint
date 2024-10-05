@@ -128,6 +128,7 @@ defmodule Cashubrew.Mint do
   def handle_call({:create_mint_quote, amount, description}, _from, state) do
     repo = Application.get_env(:cashubrew, :repo)
 
+    IO.puts("lfg")
     case LightningNetworkService.create_invoice(amount, description) do
       {:ok, payment_request, _payment_hash} ->
         # 1 hour expiry
@@ -282,14 +283,14 @@ defmodule Cashubrew.Mint do
     # {:ok, proofs_check}= ProofValidator.handle_proofs(inputs)
     # IO.puts("proofs_check: #{proofs_check}")
 
-    # proofs =
+    # inputs_encoded =
     #   cond do
     #     is_list(inputs) ->
     #       inputs  # Input is already an array, so use it directly
 
     #     is_binary(inputs) ->
     #       # Step 2: Input is a string, try to parse it as JSON
-    #       case ProofValidator.parse_proofs(inputs) do
+    #       case ProofValidator.parse_proofs("#{inputs}") do
     #         {:ok, parsed_proofs} -> parsed_proofs
     #         {:error, "issue"}
     #       end
@@ -300,38 +301,37 @@ defmodule Cashubrew.Mint do
     # IO.puts("proofs: #{proofs}")
 
 
-    {:ok, inputs_encoded} = Jason.decode(inputs)
-    IO.puts("inputs_encoded: #{inputs_encoded}")
-
-    {proofs_amount, ys} =
-      Enum.map(inputs_encoded, fn proof, {total, ys_acc} ->
-        case BDHKE.hash_to_curve(proof.secret) do
-          {:ok, y} ->
-            # y_hex = Base.encode16(y, case: :lower)  # Convert to hex
-            {total + proof.amount}
-
-          {:error, _reason} ->
-            # Return error if hashing fails
-            {:error, Errors.invalid_proof_error()}
-        end
-      end)
+    # {:ok, inputs_encoded} = Jason.decode(inputs)
+    # IO.puts("inputs_encoded: #{inputs_encoded}")
 
     # {proofs_amount, ys} =
-    #   inputs
-    #   # Jason.decode(inputs)
-    #   |> Enum.map({0, []}, fn proof, {total, ys_acc} ->
+    #   Enum.map(inputs, fn proof, {total, ys_acc} ->
     #     case BDHKE.hash_to_curve(proof.secret) do
     #       {:ok, y} ->
     #         # y_hex = Base.encode16(y, case: :lower)  # Convert to hex
     #         {total + proof.amount}
 
     #       {:error, _reason} ->
+    #         # Return error if hashing fails
+    #         {:error, Errors.invalid_proof_error()}
+    #     end
+    #   end)
+
+    # {proofs_amount, ys} =
+    #   Enum.map(inputs, fn proof->
+    #     # inputs |> Enum.each(inputs, fn proof, {total, ys_acc} ->
+    #     case BDHKE.hash_to_curve(proof.secret) do
+    #       {:ok, y} ->
+    #         y_hex = Base.encode16(y, case: :lower)  # Convert to hex
+    #         {y_hex}
+
+    #       {:error, _reason} ->
     #         {:error, Errors.invalid_proof_error()}  # Return error if hashing fails
     #     end
     #   end)
 
-    IO.puts("proofs_amount: #{proofs_amount}")
-    IO.puts("ys: #{ys}")
+    # IO.puts("proofs_amount: #{proofs_amount}")
+    # IO.puts("ys: #{ys}")
 
     # Check if quote is already paid or not
 

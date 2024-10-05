@@ -51,25 +51,46 @@ defmodule Cashubrew.Cashu.ProofValidator do
       amount: Map.fetch!(proof_map, "amount"),
       id:  Map.fetch!(proof_map, "id"),
       secret:  Map.fetch!(proof_map, "secret"),
-      C:  Map.fetch!(proof_map, "C"),
+      C:  Map.fetch!(proof_map, "C")
     }
 
   end
 
-  def parse_proofs(json_string) do
-    IO.puts("json_string: #{json_string}")
+    # Parsing function: checks if it's a string or list and tries to parse it as JSON
+  defp parse_proofs(proofs_input) when is_binary(proofs_input) do
+      # Try to decode the JSON string
+      case Jason.decode(proofs_input) do
+        {:ok, proof_list} when is_list(proof_list) ->
+          {:ok, proof_list}
 
-    case Jason.decode(json_string) do
-      {:ok, proof_list} ->
-        IO.puts("proof_list: #{proof_list}")
+        {:ok, _other} ->
+          {:error, "Expected an array of proofs but received something else."}
 
-        # Convert to Proof structs if necessary or keep as map
-        {:ok, proof_list |> Enum.map(&convert_to_proof_struct/1)}
-
-      {:error, reason} ->
-        {:error, "Failed to parse JSON: #{reason}"}
-    end
+        {:error, %Jason.DecodeError{}} ->
+          {:error, "Invalid JSON format in proofs."}
+      end
   end
+
+  # If input is already a list, return it
+  defp parse_proofs(proofs_input) when is_list(proofs_input), do: {:ok, proofs_input}
+
+  # If input is neither string nor list, return an error
+  defp parse_proofs(_), do: {:error, "Invalid input type for proofs."}
+
+  # def parse_proofs(json_string) do
+  #   IO.puts("json_string: #{json_string}")
+
+  #   case Jason.decode(json_string) do
+  #     {:ok, proof_list} ->
+  #       IO.puts("proof_list: #{proof_list}")
+
+  #       # Convert to Proof structs if necessary or keep as map
+  #       {:ok, proof_list |> Enum.map(&convert_to_proof_struct/1)}
+
+  #     {:error, reason} ->
+  #       {:error, "Failed to parse JSON: #{reason}"}
+  #   end
+  # end
 
   def validate_proofs(proofs) when is_list(proofs) do
     Enum.all?(proofs, &valid_proof?/1)
@@ -83,7 +104,6 @@ defmodule Cashubrew.Cashu.ProofValidator do
          "C" => _,
          "amount" => _,
          "secret" => _,
-         "witness" => _,
          "id" => _
        }), do: true
 
@@ -93,13 +113,11 @@ defmodule Cashubrew.Cashu.ProofValidator do
          "C" => c,
          "amount" => amount,
          "secret" => secret,
-         "witness" => _witness,  # witness is allowed to be undefined (nil in Elixir)
          "id" => id
        }) do
     is_binary(c) and
       is_integer(amount) and
       is_binary(secret) and
-      (is_nil(_witness) or is_binary(_witness)) and
       is_binary(id)
   end
 end
